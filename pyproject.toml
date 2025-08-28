@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swe-szn"
+version = "0.1.0"
+description = "a tool neccessary during swe application season"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "typer",
+    "openai",
+    "firecrawl",
+    "pypdf",
+    "python-dotenv",
+    "pyyaml",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["swe_szn*"]
+
+[project.scripts]
+swe-szn = "swe_szn.cli:app"
