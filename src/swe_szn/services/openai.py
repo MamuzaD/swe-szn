@@ -15,6 +15,50 @@ from swe_szn.services.cache import (
 )
 from swe_szn.prompts import load_prompt
 
+MODEL_SUPPORTS_TEMPERATURE = {
+    "gpt-5": False,
+}
+
+MODEL_PRICING = {
+    # 3.5 and 4 family
+    "gpt-4o": {"input": 0.0025, "output": 0.0100},  # $2.50 / $10.00 per 1K
+    "gpt-4o-mini": {"input": 0.00060, "output": 0.00240},  # $0.60 / $2.40 per 1K
+    "gpt-4-turbo": {"input": 0.0100, "output": 0.0300},  # $10 / $30 per 1K
+    "gpt-4": {"input": 0.0300, "output": 0.0600},  # $30 / $60 per 1K
+    "gpt-3.5-turbo": {"input": 0.00050, "output": 0.00150},  # $0.50 / $1.50 per 1K
+    # GPT‑5 family
+    "gpt-5": {"input": 0.00125, "output": 0.01000},  # $1.25 / $10.00 per 1K
+    "gpt-5-mini": {"input": 0.00025, "output": 0.00200},  # $0.25 / $2.00 per 1K
+    "gpt-5-nano": {"input": 0.00005, "output": 0.00040},  # $0.05 / $0.40 per 1K
+    # GPT‑4.1 family
+    "gpt-4.1": {"input": 0.00300, "output": 0.01200},  # $3.00 / $12.00 per 1K
+    "gpt-4.1-mini": {"input": 0.00080, "output": 0.00320},  # $0.80 / $3.20 per 1K
+    "gpt-4.1-nano": {"input": 0.00020, "output": 0.00080},  # $0.20 / $0.80 per 1K
+}
+
+
+def estimate_cost(
+    model: str, input_tokens: int, output_tokens: int
+) -> Dict[str, Union[float, str]]:
+    """Estimate the cost of an OpenAI API request"""
+    pricing = MODEL_PRICING.get(
+        model, MODEL_PRICING["gpt-4o-mini"]
+    )  # default to mini pricing
+
+    input_cost = (input_tokens / 1000) * pricing["input"]
+    output_cost = (output_tokens / 1000) * pricing["output"]
+    total_cost = input_cost + output_cost
+
+    return {
+        "model": model,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "input_cost_usd": round(input_cost, 6),
+        "output_cost_usd": round(output_cost, 6),
+        "total_cost_usd": round(total_cost, 6),
+        "pricing_per_1k": pricing,
+    }
+
 
 def compare_jd_vs_resume(
     jd_markdown: str,
@@ -52,16 +96,30 @@ def compare_jd_vs_resume(
         job=jd_markdown[:12000], resume=resume_text[:12000]
     )
 
-    resp = client.chat.completions.create(
-        model=use_model,
-        messages=[
+    kwargs = {
+        "model": use_model,
+        "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        response_format={"type": "json_object"},
-        temperature=0.1,
-    )
+        "response_format": {"type": "json_object"},
+    }
+
+    supports = MODEL_SUPPORTS_TEMPERATURE.get(use_model, False)
+    if supports:
+        kwargs["temperature"] = 0.2
+
+    resp = client.chat.completions.create(**kwargs)
     content = strip_json_code_fence(resp.choices[0].message.content or "{}")
+
+    input_tokens = resp.usage.prompt_tokens if resp.usage else 0
+    output_tokens = resp.usage.completion_tokens if resp.usage else 0
+    cost_estimate = estimate_cost(use_model, input_tokens, output_tokens)
+
+    print(
+        f"API Cost: ${cost_estimate['total_cost_usd']:.6f} "
+        f"({input_tokens} input + {output_tokens} output tokens)"
+    )
 
     try:
         parsed = json.loads(content)
@@ -103,7 +161,12 @@ def compare_jd_vs_resume(
                 ],
             }
 
-        parsed["_meta"] = {"key": key, "model": use_model, "job_url": job_url}
+        parsed["_meta"] = {
+            "key": key,
+            "model": use_model,
+            "job_url": job_url,
+            "cost_estimate": cost_estimate,
+        }
         try:
             save_json(cache_file, parsed)
         except Exception:

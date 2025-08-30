@@ -154,12 +154,46 @@ def _panels_bullets(result: dict):
     return renderables
 
 
+def _panel_cost(result: dict):
+    meta = result.get("_meta", {}) or {}
+    cost = meta.get("cost_estimate", {}) or {}
+
+    table = Table(show_header=False, box=None, pad_edge=False)
+    table.add_column("Field", style="cyan", no_wrap=True)
+    table.add_column("Value", style="white")
+
+    # Add cost row
+    total_cost = cost.get("total_cost_usd", 0)
+    input_tokens = cost.get("input_tokens", 0)
+    output_tokens = cost.get("output_tokens", 0)
+    if input_tokens and output_tokens:
+        cost_text = f"${total_cost:.4f} ({input_tokens} → {output_tokens} tokens)"
+    else:
+        cost_text = f"${total_cost:.4f}"
+    table.add_row("Cost", cost_text)
+
+    # Add model row
+    model = meta.get("model", "unknown")
+    table.add_row("Model", model)
+
+    return Panel(
+        table,
+        title="API Cost & Model",
+        border_style="blue",
+        padding=(0, 2),
+        expand=True,
+    )
+
+
 def print_overview(result: dict):
-    left_items = [_panel_job(result), _panel_scores(result)]
+    left_items = [
+        _panel_job(result),
+        _panel_scores(result),
+    ]
     kws_panel = _panel_keywords(result)
     if kws_panel is not None:
         left_items.append(kws_panel)
-    left_group = Group(*left_items)
+    left_group = Group(*left_items, _panel_cost(result))
 
     # Build right column (summary + strengths/gaps + bullets)
     right_items = []

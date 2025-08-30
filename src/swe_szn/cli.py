@@ -8,8 +8,8 @@ app = typer.Typer(help="swe-szn CLI: analyze resumes vs job listings")
 
 @app.command()
 def analyze_job(
-    url: str,
     resume_path: Path,
+    url: str = typer.Argument(None, help="Job posting URL (will prompt if not provided)"),
     export: str = typer.Option(
         "none", "--export", "-e", help="Export format: json|md|none"
     ),
@@ -21,6 +21,10 @@ def analyze_job(
         False, "--force", "-f", help="Force re-run, ignore cache"
     ),
 ):
+    # prompt for job url
+    if not url:
+        url = typer.prompt("Enter the job posting URL")
+    
     result = analyze.run(
         url=str(url),
         resume_path=str(resume_path),
