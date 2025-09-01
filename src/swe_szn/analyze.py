@@ -1,7 +1,8 @@
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
+
+from swe_szn.config import settings
 from swe_szn.services import firecrawl, resume
 from swe_szn.services.openai import compare_jd_vs_resume
-from swe_szn.config import settings
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 
 
 def run(

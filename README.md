@@ -46,6 +46,13 @@ pip install -e .
 ## Quick Start
 
 ### 1. Configure API Keys
+
+**Option A: Interactive Setup Wizard (Recommended)**
+```bash
+swe-szn config setup
+```
+
+**Option B: Manual Configuration**
 Create a `.env` file in the project root:
 
 ```bash
@@ -64,6 +71,16 @@ swe-szn analyze-job path/to/your/resume.pdf https://example.com/job-posting
 ```
 
 ## Usage
+
+### Configuration
+
+```bash
+# Interactive setup wizard
+swe-szn config setup
+
+# Check current configuration
+swe-szn config check
+```
 
 ### Basic Analysis
 
@@ -90,6 +107,6 @@ swe-szn analyze-job resume.pdf --force
 - [x] CLI interface
 - [x] Configuration management
 - [x] Export capabilities
-- [ ] Interactive configuration setup
+- [x] Interactive configuration setup
 - [ ] Batch job analysis
 - [ ] Advanced analytics dashboard

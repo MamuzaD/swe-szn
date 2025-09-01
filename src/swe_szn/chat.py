@@ -1,14 +1,15 @@
-from typing import Optional
-import typer
 import re
-from swe_szn.services.openai import chat_about_job_stream
-from swe_szn.ui import rich
-from rich.panel import Panel
+from typing import Optional
+
+import typer
+from rich.align import Align
+from rich.console import Group
 from rich.live import Live
 from rich.markdown import Markdown
-from rich.console import Group
-from rich.align import Align
+from rich.panel import Panel
 
+from swe_szn.services.openai import chat_about_job_stream
+from swe_szn.ui import rich
 
 _ANSI_SEQ_RE = re.compile(
     r"(?:\x1b\[[0-?]*[ -/]*[@-~]|\x1b[@-Z\\-_]|\x1b\][0-?]*.*?(?:\x07|\x1b\\)|\x1b[P^_].*?\x1b\\|\^\[[0-?]*[ -/]*[@-~])",
@@ -75,7 +76,7 @@ def run(result, model, prompt):
             border_style="magenta",
             padding=(1, 2),
         )
-        centered_panel = Align.center(panel) # center the panel
+        centered_panel = Align.center(panel)  # center the panel
 
         chunks = []
         current_text = ""

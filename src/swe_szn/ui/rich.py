@@ -1,8 +1,8 @@
-from rich.console import Console, Group
 from rich.columns import Columns
+from rich.console import Console, Group
+from rich.panel import Panel
 from rich.segment import Segment
 from rich.table import Table
-from rich.panel import Panel
 from rich.text import Text
 
 console = Console()
@@ -28,7 +28,6 @@ def _panel_job(result: dict) -> Panel:
     table.add_column("Field", style="cyan", no_wrap=True)
     table.add_column("Value", style="white")
 
-   
     if title:
         table.add_row("Role", title)
     if company:

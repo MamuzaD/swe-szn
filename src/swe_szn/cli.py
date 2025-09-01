@@ -1,11 +1,17 @@
-import typer
-from pathlib import Path
-from swe_szn import analyze, chat
-from swe_szn.ui import markdown, rich
 import json
+from pathlib import Path
 
+import typer
+
+from swe_szn.config import apply as config_apply
+from swe_szn.config import snapshot
+from swe_szn.ui import markdown, rich
+from swe_szn.ui.config import check as config_check
+from swe_szn.ui.config import setup as config_setup
 
 app = typer.Typer(help="swe-szn CLI: analyze resumes vs job listings")
+config_app = typer.Typer(help="configuration commands")
+app.add_typer(config_app, name="config")
 
 
 @app.command()
@@ -34,6 +40,8 @@ def analyze_job(
         help="Prompt template to use for the chat",
     ),
 ):
+    from swe_szn import analyze, chat
+
     # prompt for job url
     if not url:
         url = typer.prompt("Enter the job posting URL")
@@ -53,7 +61,7 @@ def analyze_job(
         json_string = json.dumps(result, indent=2)
         rich.console.print_json(json=json_string)
     elif export == "md":
-        md = markdown.to_markdown(result)
+        md = markdown.tov_markdown(result)
         Path("outputs").mkdir(exist_ok=True)
         out_path = Path("outputs") / f"analysis_{result['_meta']['key']}.md"
         out_path.write_text(md, encoding="utf-8")
@@ -61,6 +69,29 @@ def analyze_job(
 
     if chat_after:
         chat.run(result, model, chat_prompt)
+
+
+@config_app.command("setup")
+def setup_config():
+    st = snapshot()
+    updates = config_setup(st)
+    if updates:
+        config_apply(updates)
+    config_check(snapshot())
+
+
+@config_app.command("check")
+def check_config():
+    config_check(snapshot())
+
+
+@config_app.command("set")
+def set_config(
+    key: str = typer.Argument(help="Configuration key (e.g., OPENAI_API_KEY)"),
+    value: str = typer.Argument(help="Configuration value"),
+):
+    config_apply({key: value})
+    config_check(snapshot())
 
 
 if __name__ == "__main__":

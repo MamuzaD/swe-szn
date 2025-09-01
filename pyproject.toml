@@ -17,9 +17,41 @@ dependencies = [
     "pyyaml",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "black",
+    "isort",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["swe_szn*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["swe_szn"]
+skip_glob = ["*/__pycache__/*", "*/migrations/*"]
 
 [project.scripts]
 swe-szn = "swe_szn.cli:app"

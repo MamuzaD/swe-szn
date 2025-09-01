@@ -1,5 +1,6 @@
-import yaml
 from pathlib import Path
+
+import yaml
 
 PROMPTS_DIR = Path(__file__).resolve().parent
 

@@ -1,11 +1,11 @@
 import time
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
 from firecrawl import Firecrawl
 
 from swe_szn.config import settings
-from swe_szn.services.cache import md5_digest, load_json, save_json
+from swe_szn.services.cache import load_json, md5_digest, save_json
 
 
 def scrape_job(

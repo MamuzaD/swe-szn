@@ -1,21 +1,27 @@
 import json
-from typing import Dict, Any, Optional, Union, Generator
 from pathlib import Path
+from typing import Any, Dict, Generator, Optional, Union
 
 from openai import OpenAI
 
 from swe_szn.config import settings
+from swe_szn.prompts import load_prompt
 from swe_szn.services.cache import (
-    md5_digest,
-    hash_key,
     ensure_dir,
+    hash_key,
     load_json,
+    md5_digest,
     save_json,
     strip_json_code_fence,
 )
-from swe_szn.prompts import load_prompt
 
-client = OpenAI(api_key=settings().require_openai_key())
+
+def get_client():
+    global client
+    if "client" not in globals() or client is None:
+        client = OpenAI(api_key=settings().require_openai_key())
+    return client
+
 
 MODEL_SUPPORTS_TEMPERATURE = {
     "gpt-4o": True,
@@ -84,6 +90,7 @@ def compare_jd_vs_resume(
 ) -> Dict[str, Any]:
     """compare JD vs resume using OpenAI with caching"""
     use_model = model or settings().openai_model
+    client = get_client()
 
     jd_digest = md5_digest(jd_markdown, limit=8000)
     res_digest = md5_digest(resume_text, limit=8000)
@@ -137,9 +144,7 @@ def compare_jd_vs_resume(
         parsed.setdefault("match_score", 0)
         scores = parsed.get("scores") or {}
         parsed["scores"] = {
-            "skills_match": int(
-                scores.get("skills_match", parsed.get("match_score", 0))
-            ),
+            "skills_match": int(scores.get("skills_match", 0)),
             "experience_alignment": int(scores.get("experience_alignment", 0)),
             "keyword_coverage": int(scores.get("keyword_coverage", 0)),
         }
@@ -147,18 +152,10 @@ def compare_jd_vs_resume(
         parsed.setdefault("gaps", [])
         parsed.setdefault("missing_keywords", [])
 
-        # Bullets: prefer structured {achieved, targets}; keep legacy fallback
         bullets = parsed.get("bullets")
-        if isinstance(bullets, dict):
-            achieved = [
-                b for b in (bullets.get("achieved") or []) if isinstance(b, str)
-            ]
-            targets = [b for b in (bullets.get("targets") or []) if isinstance(b, str)]
-            parsed["bullets"] = {"achieved": achieved, "targets": targets}
-            # also provide legacy flat list for current markdown export
-            parsed["tailored_bullets"] = list(achieved) + [
-                f"[Target] {t}" for t in targets
-            ]
+        achieved = [b for b in (bullets.get("achieved") or []) if isinstance(b, str)]
+        targets = [b for b in (bullets.get("targets") or []) if isinstance(b, str)]
+        parsed["bullets"] = {"achieved": achieved, "targets": targets}
 
         parsed["_meta"] = {
             "key": key,
@@ -186,10 +183,7 @@ def compare_jd_vs_resume(
             "tailored_bullets": [],
             "_meta": {"key": key, "model": use_model, "job_url": job_url},
         }
-        try:
-            save_json(cache_file, fallback)
-        except Exception:
-            pass
+
         return fallback
 
 
@@ -204,6 +198,7 @@ def chat_about_job_stream(
 ) -> Generator[str, None, Dict[str, Any]]:
     """Stream answer tokens for a user question about the job/resume context"""
     use_model = model or settings().openai_model
+    client = get_client()
 
     if history is None:
         # first time build initial context with system prompt and static content
@@ -221,7 +216,6 @@ def chat_about_job_stream(
     else:
         messages = history + [{"role": "user", "content": question}]
 
-       
     kwargs = {
         "model": use_model,
         "messages": messages,
