@@ -7,6 +7,7 @@ from rich.panel import Panel
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.console import Group
+from rich.align import Align
 
 
 _ANSI_SEQ_RE = re.compile(
@@ -45,6 +46,8 @@ def run(result, model, prompt):
         "[dim]Tip: Ask e.g., Why are you interested in this role? or How do I tailor a bullet?[/dim]"
     )
 
+    conversation_history = None
+
     # chat prompt loop
     while True:
         q = typer.prompt("➜")
@@ -60,21 +63,24 @@ def run(result, model, prompt):
             resume_text=resume,
             model=model or None,
             prompt_name=prompt,
+            history=conversation_history,
         )
 
         panel = Panel(
             "",
-            title="swe-eper",
+            title="swe-eeper",
             subtitle="the swe-szn sweeper sweeping your jobs & resumes",
             width=120,
             expand=True,
             border_style="magenta",
+            padding=(1, 2),
         )
+        centered_panel = Align.center(panel) # center the panel
 
         chunks = []
         current_text = ""
         # stream the answer using Rich live
-        with Live(panel, refresh_per_second=10):
+        with Live(centered_panel, refresh_per_second=10):
             while True:
                 try:
                     chunk = next(gen)
@@ -84,6 +90,7 @@ def run(result, model, prompt):
                     panel.renderable = markdown_text
                 except StopIteration as e:
                     res = e.value or {}
+                    conversation_history = res.get("history")
                     cost = (res.get("_meta") or {}).get("total_cost_usd")
                     if cost:
                         # add cost before ending the live

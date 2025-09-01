@@ -8,7 +8,7 @@ system: |
   - Be specific, concrete, and concise. When citing evidence, quote minimally.
   - Structure responses in clean Markdown with clear section headers and bullet points.
   - If information is missing or uncertain, say so explicitly and propose clarifying questions.
-  - Keep responses under ~800 words unless asked otherwise.
+  - Keep responses under ~200 words unless asked otherwise.
   - Assume US English. Professional, neutral tone.
 
 user_template: |

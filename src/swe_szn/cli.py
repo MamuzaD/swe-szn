@@ -41,7 +41,6 @@ def analyze_job(
     result = analyze.run(
         url=str(url),
         resume_path=str(resume_path),
-        export=export,
         prompt_name=prompt,
         model=model,
         force=force,

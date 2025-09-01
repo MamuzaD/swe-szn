@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, Generator
 from pathlib import Path
 
 from openai import OpenAI
@@ -15,8 +15,20 @@ from swe_szn.services.cache import (
 )
 from swe_szn.prompts import load_prompt
 
+client = OpenAI(api_key=settings().require_openai_key())
+
 MODEL_SUPPORTS_TEMPERATURE = {
+    "gpt-4o": True,
+    "gpt-4o-mini": True,
+    "gpt-4-turbo": True,
+    "gpt-4": True,
+    "gpt-3.5-turbo": True,
     "gpt-5": False,
+    "gpt-5-mini": False,
+    "gpt-5-nano": False,
+    "gpt-4.1": True,
+    "gpt-4.1-mini": True,
+    "gpt-4.1-nano": True,
 }
 
 MODEL_PRICING = {
@@ -86,8 +98,6 @@ def compare_jd_vs_resume(
         if cached is not None:
             return cached
 
-    client = OpenAI(api_key=settings().require_openai_key())
-
     # load standard or user prompt
     PROMPT = load_prompt(prompt_name)
     SYSTEM_PROMPT = PROMPT["system"]
@@ -105,7 +115,7 @@ def compare_jd_vs_resume(
         "response_format": {"type": "json_object"},
     }
 
-    supports = MODEL_SUPPORTS_TEMPERATURE.get(use_model, False)
+    supports = MODEL_SUPPORTS_TEMPERATURE.get(use_model, True)
     if supports:
         kwargs["temperature"] = 0.2
 
@@ -190,30 +200,36 @@ def chat_about_job_stream(
     resume_text: str,
     model: Optional[str] = None,
     prompt_name: str = "swe_intern_chat",
-):
+    history: Optional[list] = None,
+) -> Generator[str, None, Dict[str, Any]]:
     """Stream answer tokens for a user question about the job/resume context"""
     use_model = model or settings().openai_model
-    client = OpenAI(api_key=settings().require_openai_key())
 
-    PROMPT = load_prompt(prompt_name)
-    SYSTEM_PROMPT = PROMPT["system"]
-    USER_TEMPLATE = PROMPT["user_template"]
-    user_prompt = USER_TEMPLATE.format(
-        job=jd_markdown[:12000], resume=resume_text[:12000]
-    )
-
-    kwargs = {
-        "model": use_model,
-        "messages": [
+    if history is None:
+        # first time build initial context with system prompt and static content
+        PROMPT = load_prompt(prompt_name)
+        SYSTEM_PROMPT = PROMPT["system"]
+        USER_TEMPLATE = PROMPT["user_template"]
+        user_prompt = USER_TEMPLATE.format(
+            job=jd_markdown[:12000], resume=resume_text[:12000]
+        )
+        messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
             {"role": "user", "content": question},
-        ],
+        ]
+    else:
+        messages = history + [{"role": "user", "content": question}]
+
+       
+    kwargs = {
+        "model": use_model,
+        "messages": messages,
         "stream": True,
         "stream_options": {"include_usage": True},
     }
 
-    supports = MODEL_SUPPORTS_TEMPERATURE.get(use_model, False)
+    supports = MODEL_SUPPORTS_TEMPERATURE.get(use_model, True)
     if supports:
         kwargs["temperature"] = 0.5
 
@@ -251,9 +267,11 @@ def chat_about_job_stream(
             "pricing_per_1k": MODEL_PRICING.get(use_model, {}),
         }
     )
+    updated_history = messages + [{"role": "assistant", "content": total_text}]
 
     return {
         "answer": total_text,
+        "history": updated_history,
         "_meta": {
             "model": use_model,
             "input_tokens": input_tokens,

@@ -1,30 +1,47 @@
 from swe_szn.services import firecrawl, resume
 from swe_szn.services.openai import compare_jd_vs_resume
 from swe_szn.config import settings
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 
 
 def run(
     url: str,
     resume_path: str,
     *,
-    export: str = "md",
     prompt_name: str,
     model: str,
     force: bool,
     chat_after: bool,
 ) -> dict:
-    jd_markdown = firecrawl.scrape_job(url)
-    resume_text = resume.parse_resume(resume_path)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        transient=True,
+        expand=True,
+    ) as progress:
+        scrape_task = progress.add_task(
+            "[yellow]swe-eping the job posting...", total=None
+        )
+        jd_markdown = firecrawl.scrape_job(url)
+        progress.update(scrape_task, completed=1, total=1)
 
-    result = compare_jd_vs_resume(
-        jd_markdown=jd_markdown,
-        resume_text=resume_text,
-        model=model,
-        job_url=url,
-        cache_dir=settings().cache_dir("openai"),
-        force=force,
-        prompt_name=prompt_name,
-    )
+        parse_task = progress.add_task("[yellow]swe-eping the resume...", total=None)
+        resume_text = resume.parse_resume(resume_path)
+        progress.update(parse_task, completed=1, total=1)
+
+        # AI analysis
+        ai_task = progress.add_task("[cyan]summoning the swe-eeper...", total=None)
+        result = compare_jd_vs_resume(
+            jd_markdown=jd_markdown,
+            resume_text=resume_text,
+            model=model,
+            job_url=url,
+            cache_dir=settings().cache_dir("openai"),
+            force=force,
+            prompt_name=prompt_name,
+        )
+        progress.update(ai_task, completed=1, total=1)
 
     # attach context for optional chat follow-up
     if chat_after:
