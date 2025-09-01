@@ -39,7 +39,7 @@ MODEL_PRICING = {
 
 def estimate_cost(
     model: str, input_tokens: int, output_tokens: int
-) -> Dict[str, Union[float, str]]:
+) -> Dict[str, Union[float, str, dict]]:
     """Estimate the cost of an OpenAI API request"""
     pricing = MODEL_PRICING.get(
         model, MODEL_PRICING["gpt-4o-mini"]
@@ -149,17 +149,6 @@ def compare_jd_vs_resume(
             parsed["tailored_bullets"] = list(achieved) + [
                 f"[Target] {t}" for t in targets
             ]
-        else:
-            tb = parsed.get("tailored_bullets") or []
-            parsed["tailored_bullets"] = tb
-            parsed["bullets"] = {
-                "achieved": [b for b in tb if not str(b).startswith("[Target]")],
-                "targets": [
-                    b.replace("[Target] ", "")
-                    for b in tb
-                    if str(b).startswith("[Target]")
-                ],
-            }
 
         parsed["_meta"] = {
             "key": key,
@@ -192,3 +181,83 @@ def compare_jd_vs_resume(
         except Exception:
             pass
         return fallback
+
+
+def chat_about_job_stream(
+    question: str,
+    *,
+    jd_markdown: str,
+    resume_text: str,
+    model: Optional[str] = None,
+    prompt_name: str = "swe_intern_chat",
+):
+    """Stream answer tokens for a user question about the job/resume context"""
+    use_model = model or settings().openai_model
+    client = OpenAI(api_key=settings().require_openai_key())
+
+    PROMPT = load_prompt(prompt_name)
+    SYSTEM_PROMPT = PROMPT["system"]
+    USER_TEMPLATE = PROMPT["user_template"]
+    user_prompt = USER_TEMPLATE.format(
+        job=jd_markdown[:12000], resume=resume_text[:12000]
+    )
+
+    kwargs = {
+        "model": use_model,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+            {"role": "user", "content": question},
+        ],
+        "stream": True,
+        "stream_options": {"include_usage": True},
+    }
+
+    supports = MODEL_SUPPORTS_TEMPERATURE.get(use_model, False)
+    if supports:
+        kwargs["temperature"] = 0.5
+
+    input_tokens = 0
+    output_tokens = 0
+    full_text = []
+
+    stream = client.chat.completions.create(**kwargs)
+    for chunk in stream:
+        choice = (chunk.choices or [None])[0]
+        delta = getattr(choice, "delta", None)
+        if delta is not None:
+            content = getattr(delta, "content", None)
+            if content:
+                full_text.append(content)
+                yield content
+
+        usage = getattr(chunk, "usage", None)
+        if usage:
+            input_tokens = getattr(usage, "prompt_tokens", input_tokens) or input_tokens
+            output_tokens = (
+                getattr(usage, "completion_tokens", output_tokens) or output_tokens
+            )
+
+    total_text = "".join(full_text)
+
+    cost = (
+        estimate_cost(use_model, input_tokens, output_tokens)
+        if (input_tokens or output_tokens)
+        else {
+            "model": use_model,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_cost_usd": 0.0,
+            "pricing_per_1k": MODEL_PRICING.get(use_model, {}),
+        }
+    )
+
+    return {
+        "answer": total_text,
+        "_meta": {
+            "model": use_model,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_cost_usd": cost.get("total_cost_usd", 0.0),
+        },
+    }

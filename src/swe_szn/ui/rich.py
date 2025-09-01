@@ -28,11 +28,11 @@ def _panel_job(result: dict) -> Panel:
     table.add_column("Field", style="cyan", no_wrap=True)
     table.add_column("Value", style="white")
 
-    role_line = " ".join(
-        x for x in [title, "@" if company and title else "", company] if x
-    )
-    if role_line:
-        table.add_row("Role", role_line)
+   
+    if title:
+        table.add_row("Role", title)
+    if company:
+        table.add_row("Company", company)
     if location:
         table.add_row("Location", location)
     if url:

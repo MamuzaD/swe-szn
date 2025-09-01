@@ -22,6 +22,11 @@ system: |
     "missing_keywords": string[],
     "bullets": {"achieved": string[], "targets": string[]},
   }.
+  Company:
+  - Title is just the job title from the job description
+  - Company is just the company name from the job description
+  - Location: Use the location from the job description. If multiple locations are listed, select the one most relevant to the candidate based on their current location or nearby cities as indicated in the resume. 
+    For example, if the job lists "San Francisco, CA; +20 locations", choose "San Francisco, CA" if the candidate is nearby but still include the number of the locations such as "San Francisco, CA; +20 locations".
   Scoring rubric (0-100, integers): 
   - skills_match (45): tech stack/frameworks/tools explicitly evidenced in resume AND required in JD. Penalize familiarity-only, coursework-only, or generic claims. 
   - experience_alignment (25): responsibilities and scope match (e.g., backend APIs, data pipelines, production support). Penalize seniority mismatch and lack of shipped impact. 

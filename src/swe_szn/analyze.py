@@ -11,6 +11,7 @@ def run(
     prompt_name: str,
     model: str,
     force: bool,
+    chat_after: bool,
 ) -> dict:
     jd_markdown = firecrawl.scrape_job(url)
     resume_text = resume.parse_resume(resume_path)
@@ -24,5 +25,11 @@ def run(
         force=force,
         prompt_name=prompt_name,
     )
+
+    # attach context for optional chat follow-up
+    if chat_after:
+        result.setdefault("_context", {})
+        result["_context"]["jd_markdown"] = jd_markdown
+        result["_context"]["resume_text"] = resume_text
 
     return result

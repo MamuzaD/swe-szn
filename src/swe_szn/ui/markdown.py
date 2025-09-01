@@ -23,7 +23,7 @@ def to_markdown(result: dict) -> str:
         *[f"- {k}" for k in result.get("missing_keywords", [])],
         "",
         "## Tailored Bullets",
-        *[f"- {b}" for b in result.get("tailored_bullets", [])],
+        *[f"- {b}" for b in result.get("bullets", {}).get("achieved", [])],
         "",
         "## Meta",
         f"- Job URL: {meta.get('job_url', '')}",
