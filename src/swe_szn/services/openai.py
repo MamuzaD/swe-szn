@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 from typing import Any, Dict, Generator, Optional, Union
 
@@ -126,7 +127,9 @@ def compare_jd_vs_resume(
     if supports:
         kwargs["temperature"] = 0.2
 
+    start_time = time.perf_counter()
     resp = client.chat.completions.create(**kwargs)
+    elapsed = int((time.perf_counter() - start_time) * 1000)
     content = strip_json_code_fence(resp.choices[0].message.content or "{}")
 
     input_tokens = resp.usage.prompt_tokens if resp.usage else 0
@@ -150,18 +153,27 @@ def compare_jd_vs_resume(
         }
         parsed.setdefault("strong_matches", [])
         parsed.setdefault("gaps", [])
-        parsed.setdefault("missing_keywords", [])
 
-        bullets = parsed.get("bullets")
-        achieved = [b for b in (bullets.get("achieved") or []) if isinstance(b, str)]
-        targets = [b for b in (bullets.get("targets") or []) if isinstance(b, str)]
-        parsed["bullets"] = {"achieved": achieved, "targets": targets}
+        keywords = parsed.get("keywords", {})
+        parsed["keywords"] = {
+            "jd": {
+                "canonical": keywords.get("jd", {}).get("canonical", []),
+                "by_phrase": keywords.get("jd", {}).get("by_phrase", {}),
+            },
+            "resume": {"canonical": keywords.get("resume", {}).get("canonical", [])},
+            "must_have": keywords.get("must_have", []),
+            "preferred": keywords.get("preferred", []),
+            "matched": keywords.get("matched", []),
+            "missing": keywords.get("missing", []),
+            "quick_wins": keywords.get("quick_wins", []),
+        }
 
         parsed["_meta"] = {
             "key": key,
             "model": use_model,
             "job_url": job_url,
             "cost_estimate": cost_estimate,
+            "elapsed": elapsed,
         }
         try:
             save_json(cache_file, parsed)
@@ -179,9 +191,21 @@ def compare_jd_vs_resume(
             },
             "strong_matches": [],
             "gaps": [],
-            "missing_keywords": [],
-            "tailored_bullets": [],
-            "_meta": {"key": key, "model": use_model, "job_url": job_url},
+            "keywords": {
+                "jd": {"canonical": [], "by_phrase": {}},
+                "resume": {"canonical": []},
+                "must_have": [],
+                "preferred": [],
+                "matched": [],
+                "missing": [],
+                "quick_wins": [],
+            },
+            "_meta": {
+                "key": key,
+                "model": use_model,
+                "job_url": job_url,
+                "elapsed": elapsed,
+            },
         }
 
         return fallback
@@ -231,6 +255,7 @@ def chat_about_job_stream(
     output_tokens = 0
     full_text = []
 
+    start_time = time.perf_counter()
     stream = client.chat.completions.create(**kwargs)
     for chunk in stream:
         choice = (chunk.choices or [None])[0]
@@ -249,6 +274,7 @@ def chat_about_job_stream(
             )
 
     total_text = "".join(full_text)
+    elapsed = int((time.perf_counter() - start_time) * 1000)
 
     cost = (
         estimate_cost(use_model, input_tokens, output_tokens)
@@ -271,5 +297,6 @@ def chat_about_job_stream(
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "total_cost_usd": cost.get("total_cost_usd", 0.0),
+            "elapsed": elapsed,
         },
     }

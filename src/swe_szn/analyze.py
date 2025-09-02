@@ -25,11 +25,21 @@ def run(
             "[yellow]swe-eping the job posting...", total=None
         )
         jd_markdown = firecrawl.scrape_job(url)
-        progress.update(scrape_task, completed=1, total=1)
+        progress.update(
+            scrape_task,
+            description="[green]swe-eped the job posting",
+            completed=1,
+            total=1,
+        )
 
         parse_task = progress.add_task("[yellow]swe-eping the resume...", total=None)
         resume_text = resume.parse_resume(resume_path)
-        progress.update(parse_task, completed=1, total=1)
+        progress.update(
+            parse_task,
+            description="[green]swe-eped the resume",
+            completed=1,
+            total=1,
+        )
 
         # AI analysis
         ai_task = progress.add_task("[cyan]summoning the swe-eeper...", total=None)

@@ -31,7 +31,7 @@ def analyze_job(
         False, "--force", "-f", help="Force re-run, ignore cache"
     ),
     chat_after: bool = typer.Option(
-        False, "--chat", help="Chat about the analysis afterwards"
+        False, "--chat", "-c", help="Chat about the analysis afterwards"
     ),
     chat_prompt: str = typer.Option(
         "swe_intern_chat",
@@ -61,7 +61,7 @@ def analyze_job(
         json_string = json.dumps(result, indent=2)
         rich.console.print_json(json=json_string)
     elif export == "md":
-        md = markdown.tov_markdown(result)
+        md = markdown.to_markdown(result)
         Path("outputs").mkdir(exist_ok=True)
         out_path = Path("outputs") / f"analysis_{result['_meta']['key']}.md"
         out_path.write_text(md, encoding="utf-8")

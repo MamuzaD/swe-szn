@@ -93,9 +93,13 @@ def run(result, model, prompt):
                     res = e.value or {}
                     conversation_history = res.get("history")
                     cost = (res.get("_meta") or {}).get("total_cost_usd")
+                    elapsed = ((res.get("_meta") or {}).get("elapsed", 0)) / 1000.0
                     if cost:
                         # add cost before ending the live
-                        cost_text = f"\n\n[dim]~ [cyan]${cost:.4f}[/cyan][/dim]"
+                        cost_text = (
+                            f"\n\n[dim]~ [cyan]${cost:.4f}[/cyan][/dim]\n"
+                            f"[dim]~ [blue]{elapsed:.2f}s[/blue][/dim]"
+                        )
                         markdown_text = Markdown(current_text)
                         panel.renderable = Group(markdown_text, cost_text)
                     break
