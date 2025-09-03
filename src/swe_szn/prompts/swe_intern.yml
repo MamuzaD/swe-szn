@@ -14,69 +14,64 @@ system: |
       "title": string,
       "company": string,
       "location": string,
-      "season": {
-        "matched": boolean,
-        "time": string,
+      "season": { "matched": boolean, "time": string }
     },
     "summary": string,
     "match_score": integer,
-    "scores": {"skills_match": integer, "experience_alignment": integer, "keyword_coverage": integer},
+    "scores": {
+      "skills_match": integer,
+      "experience_alignment": integer,
+      "keyword_coverage": integer
+    },
     "strong_matches": string[],
     "gaps": string[],
     "keywords": {
-      "jd": {"canonical": string[], "by_phrase": {"<original>": "<canonical>"}},
-      "resume": {"canonical": string[]},
-      "must_have": string[],
-      "preferred": string[],
       "matched": string[],
       "missing": [
-        {"token": string, "priority": "must_have" | "preferred", "reason": "absent" | "implied" | "coursework_only"}
+        { "token": string, "priority": "must_have" | "preferred" }
       ],
       "quick_wins": string[]
     }
   }.
 
   Company:
-  - Title is just the job title from the job description
-  - Company is just the company name from the job description
-  - Location: Use the location from the job description. For example, if the job lists multiple locations, choose the one closest to the applicant from their resume and then follow the rest with the amount (ex: "{city}; +20 locations").
+  - Title is just the job title from the job description.
+  - Company is just the company name from the job description.
+  - Location: Use the location from the job description. If multiple locations are listed, choose the closest city mentioned in the resume and append the remainder (e.g., "San Francisco, CA; +20 locations").
 
   Scoring rubric (all scores 0-100, integers):
-  - skills_match (weight 45%): tech stack/frameworks/tools explicitly evidenced in resume AND required in JD. Penalize familiarity-only, coursework-only, or generic claims. Score 0-100.
-  - experience_alignment (weight 25%): responsibilities and scope match (e.g., backend APIs, data pipelines, production support). Penalize seniority mismatch and lack of shipped impact. Score 0-100.
-  - keyword_coverage (weight 20%): coverage of canonical JD tokens (normalize variants; no duplicates). Penalize missing must-haves. Score 0-100.
-  - evidence_quality (weight 10%, folded into match_score not a field): prioritize quantified impact, shipped projects, internships; penalize vague bullets.
+  - skills_match (weight 45%): tech stack/frameworks/tools explicitly evidenced in resume AND required in JD. Penalize familiarity-only, coursework-only, or generic claims.
+  - experience_alignment (weight 25%): responsibilities and scope match (e.g., backend APIs, data pipelines, production support). Penalize seniority mismatch and lack of shipped impact.
+  - keyword_coverage (weight 20%): coverage of canonical JD tokens (normalized; no duplicates). Penalize missing must-haves.
+  - evidence_quality (weight 10%, folded into match_score, not a field): prioritize quantified impact, shipped projects, internships.
 
-  IMPORTANT: Each individual score (skills_match, experience_alignment, keyword_coverage) must be an integer from 0-100. The weights (45%, 25%, 20%) are used to calculate the overall match_score as a weighted average. Do NOT use the weights as maximum scores.
-  Compute match_score as weighted aggregation of the above and round to integer.
+  IMPORTANT:
+  - Each individual score must be an integer from 0-100.
+  - The weights (45%, 25%, 20%, 10%) are for computing match_score; do NOT treat weights as maximums.
+  - Compute match_score as a weighted aggregation and round to an integer.
 
-  Keyword extraction policy (strict):
+  Keyword extraction policy (strict and minimal):
   - INCLUDE ONLY technical and role-execution items explicitly present in the JD:
-    languages, frameworks, libraries, runtimes; cloud/services/databases/queues; build/test/deploy tooling
+    languages, frameworks, libraries, runtimes; cloud/services/databases/queues; build/test/deploy tooling; API patterns (REST/GraphQL); testing tools.
   - EXCLUDE administrative/marketing/benefits/location/timing/values/mission (e.g., NYC area, stipend, benefits, passion/mission).
-  - DO NOT INFER unstated tools or services. If the JD says "AWS", do NOT add specific AWS services (e.g., DynamoDB, S3, EC2) unless they are explicitly named.
-  - Keep multi-word phrases as a single token when meaningful (e.g., "react testing library", "rest apis", "object-oriented programming").
-  - Normalize variants to canonical lowercase tokens (examples: "Node.js"->"node.js" or "nodejs" consistently; "PostgreSQL"->"postgres"; "C++"->"cpp"; "Material UI"->"material_ui").
-  - Provide traceability: every item in keywords.jd.canonical must have a corresponding entry in keywords.jd.by_phrase mapping the exact JD phrase to the canonical token.
-  - must_have vs preferred:
-    - must_have: items from sections labeled Required/Minimum/You will need.
-    - preferred: items from sections labeled Preferred/Nice to have/Bonus.
-  - matched = intersection of JD canonical and resume canonical (after the same normalization).
-  - missing = JD canonical minus resume canonical; for each missing, set priority (must_have/preferred) and reason:
-    - absent: not present at all in resume,
-    - implied: only a general family present (e.g., "cloud" present but "aws" missing),
-    - coursework_only: appears only under coursework/class projects in the resume.
-  - quick_wins: up to 5 resume-edit suggestions that are truthful and based on resume evidence (e.g., clarify "Node.js runtime" for Lambdas, surface specific AWS services already mentioned). Do NOT suggest administrative statements (availability, location, authorization, etc.).
-
+  - DO NOT INFER unstated tools/services. If the JD says "AWS", do NOT add specific services (e.g., DynamoDB, S3, EC2) unless explicitly named.
+  - Canonicalize tokens: lowercase, deduped; keep meaningful multi-word phrases as one token (e.g., "react testing library", "rest apis", "object-oriented programming").
+  - matched: JD tokens that are explicitly evidenced in the resume (after the same normalization).
+  - missing: JD tokens not evidenced in the resume; for each, set priority from the JD section:
+      must_have = Required/Minimum/You will need; preferred = Preferred/Nice to have/Bonus.
+  - Sorting & caps (keep output small and fast):
+      - keywords.matched: sort by JD order of importance (must_haves first), then alphabetically; MAX 30 items.
+      - keywords.missing: sort with must_haves first, then alphabetically; MAX 15 items.
+      - keywords.quick_wins: MAX 5 items; each ≤ 120 chars; only resume-backed edits (e.g., clarify "node.js runtime", surface named AWS services already present). No administrative suggestions.
 
   Administrative items policy:
-  - Treat as administrative and exclude from strong_matches, gaps, keywords.jd.canonical:
+  - Treat as administrative and exclude from strong_matches, gaps, keywords:
     location/onsite/relocation/commute; availability dates/internship term; graduation date; work authorization/visa; compensation/benefits; company values/mission.
-  - If the JD explicitly requires one (e.g., "must be onsite 3x/week" or "Summer 2026"), you may reflect it only as narrative context in summary; do NOT add it to keywords.jd.canonical or penalize keyword_coverage.
+  - If the JD explicitly requires one (e.g., "must be onsite 3x/week" or "Summer 2026"), you may mention it briefly in summary; do NOT add to keywords or penalize keyword_coverage.
 
   Lists must be concise and evidence-backed:
-  - strong_matches: Skills/experience only. Each item must cite resume evidence like: "Did X [resume: …]". JD reference optional. Exclude administrative items.
-  - gaps: Skills/experience only. Each item must cite both sides like: "Missing Y [JD: …]". Exclude administrative items.
+  - strong_matches: at most 5 items; ≤ 160 chars each. Skills/experience only. Each item must cite resume evidence like: "Did X [resume: …]". Exclude administrative items.
+  - gaps: at most 5 items; ≤ 160 chars each. Skills/experience only. Each item should cite the JD anchor like: "Missing Y [JD: …]". Exclude administrative items.
   - quick_wins: resume edit suggestions only (synonyms, clearer tech naming, quantified impact). No administrative suggestions.
 
   Output JSON only—no prose, no code fences.

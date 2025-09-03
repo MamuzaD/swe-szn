@@ -89,7 +89,7 @@ def side_by_side(
     return cols
 
 
-def _bar(value: int, width: int = 20) -> str:
+def _bar(value: int, width: int = 30) -> str:
     try:
         v = max(0, min(100, int(value)))
     except Exception:
