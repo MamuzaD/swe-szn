@@ -3,6 +3,7 @@ from typing import Any, Dict, Generator, Optional
 
 from swe_szn.config import settings
 from swe_szn.prompts import load_prompt
+from swe_szn.services import codex
 
 from .client import get_client
 from .models import estimate_cost, pricing, supports_temperature
@@ -18,6 +19,17 @@ def chat_about_job_stream(
     history: Optional[list] = None,
 ) -> Generator[str, None, Dict[str, Any]]:
     """Stream answer tokens for a user question about the job/resume context"""
+    if settings().ai_provider == "codex":
+        result = yield from codex.chat_about_job_stream(
+            question,
+            jd_markdown=jd_markdown,
+            resume_text=resume_text,
+            model=model,
+            prompt_name=prompt_name,
+            history=history,
+        )
+        return result
+
     use_model = model or settings().openai_model
     client = get_client()
 
@@ -94,5 +106,6 @@ def chat_about_job_stream(
             "output_tokens": output_tokens,
             "total_cost_usd": cost.get("total_cost_usd", 0.0),
             "elapsed": elapsed,
+            "provider": "openai",
         },
     }

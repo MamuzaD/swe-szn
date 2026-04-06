@@ -13,9 +13,11 @@ load_dotenv()
 class Settings:
     def __init__(self, environment: Optional[dict[str, str]] = None) -> None:
         env = environment or os.environ  # do not copy; reflect live env
+        self.ai_provider: str = env.get("SWE_SZN_AI_PROVIDER", "openai").strip().lower()
         self.openai_api_key: Optional[str] = env.get("OPENAI_API_KEY")
         self.firecrawl_api_key: Optional[str] = env.get("FIRECRAWL_API_KEY")
         self.openai_model: str = env.get("OPENAI_MODEL", "gpt-4o-mini")
+        self.codex_model: str = env.get("CODEX_MODEL", "gpt-5.4")
 
         # default cache under project ./cache unless overridden
         self.cache_root: Path = Path(env.get("SWE_SZN_CACHE_DIR", "cache")).resolve()
@@ -75,16 +77,22 @@ def set_key(key: str, value: str) -> None:
 def get_status() -> Dict[str, Optional[str]]:
     s = settings()
     return {
+        "SWE_SZN_AI_PROVIDER": s.ai_provider,
         "OPENAI_API_KEY": s.openai_api_key,
         "FIRECRAWL_API_KEY": s.firecrawl_api_key,
         "OPENAI_MODEL": s.openai_model,
+        "CODEX_MODEL": s.codex_model,
         "SWE_SZN_CACHE_DIR": str(s.cache_root),
     }
 
 
 def snapshot() -> Dict[str, object]:
     vals = get_status()
-    missing = [k for k in ("OPENAI_API_KEY", "FIRECRAWL_API_KEY") if not vals.get(k)]
+    missing = []
+    if vals.get("SWE_SZN_AI_PROVIDER") != "codex" and not vals.get("OPENAI_API_KEY"):
+        missing.append("OPENAI_API_KEY")
+    if not vals.get("FIRECRAWL_API_KEY"):
+        missing.append("FIRECRAWL_API_KEY")
     return {"values": vals, "missing": missing}
 
 

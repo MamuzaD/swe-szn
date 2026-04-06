@@ -59,16 +59,35 @@ def setup(status: dict) -> dict[str, str]:
 
     updates: dict[str, str] = {}
 
-    # -- openai --
-    v = prompt_update(
-        "OPENAI_API_KEY",
-        "OpenAI API Key",
-        values.get("OPENAI_API_KEY"),
-        secret=True,
-        required=True,
+    provider = prompt_update(
+        "SWE_SZN_AI_PROVIDER",
+        "AI provider (openai or codex)",
+        values.get("SWE_SZN_AI_PROVIDER"),
+        default=values.get("SWE_SZN_AI_PROVIDER") or "openai",
     )
-    if v:
-        updates["OPENAI_API_KEY"] = v
+    if provider:
+        provider = provider.strip().lower()
+        if provider not in {"openai", "codex"}:
+            raise typer.BadParameter("AI provider must be `openai` or `codex`")
+        updates["SWE_SZN_AI_PROVIDER"] = provider
+
+    active_provider = (
+        updates.get("SWE_SZN_AI_PROVIDER")
+        or values.get("SWE_SZN_AI_PROVIDER")
+        or "openai"
+    ).lower()
+
+    # -- openai --
+    if active_provider == "openai":
+        v = prompt_update(
+            "OPENAI_API_KEY",
+            "OpenAI API Key",
+            values.get("OPENAI_API_KEY"),
+            secret=True,
+            required=True,
+        )
+        if v:
+            updates["OPENAI_API_KEY"] = v
 
     # -- firecrawl --
     v = prompt_update(
@@ -91,6 +110,16 @@ def setup(status: dict) -> dict[str, str]:
     if v:
         updates["OPENAI_MODEL"] = v
 
+    # -- codex model --
+    v = prompt_update(
+        "CODEX_MODEL",
+        "Codex model",
+        values.get("CODEX_MODEL"),
+        default=values.get("CODEX_MODEL") or "gpt-5.4",
+    )
+    if v:
+        updates["CODEX_MODEL"] = v
+
     # -- cache dir --
     v = prompt_update(
         "SWE_SZN_CACHE_DIR",
@@ -112,9 +141,11 @@ def check(status: dict) -> None:
     table = Table(title="Configuration Status", show_header=False, expand=True)
     table.add_column("Key", style="cyan")
     table.add_column("Value", style="white")
+    table.add_row("SWE_SZN_AI_PROVIDER", vals.get("SWE_SZN_AI_PROVIDER") or "")
     table.add_row("OPENAI_API_KEY", _mask(vals.get("OPENAI_API_KEY")))
     table.add_row("FIRECRAWL_API_KEY", _mask(vals.get("FIRECRAWL_API_KEY")))
     table.add_row("OPENAI_MODEL", vals.get("OPENAI_MODEL") or "")
+    table.add_row("CODEX_MODEL", vals.get("CODEX_MODEL") or "")
     table.add_row("SWE_SZN_CACHE_DIR", vals.get("SWE_SZN_CACHE_DIR") or "")
     ui.console.print(table)
 

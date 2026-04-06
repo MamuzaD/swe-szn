@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional, Union
 
 from swe_szn.config import settings
 from swe_szn.prompts import load_prompt
+from swe_szn.services import codex
 from swe_szn.services.cache import (
     ensure_dir,
     hash_key,
@@ -29,12 +30,15 @@ def compare_jd_vs_resume(
     prompt_name: str = "swe_intern",
 ) -> Dict[str, Any]:
     """compare JD vs resume using OpenAI with caching"""
-    use_model = model or settings().openai_model
-    client = get_client()
+    provider = settings().ai_provider
+    use_model = model or (
+        settings().codex_model if provider == "codex" else settings().openai_model
+    )
+    client = None if provider == "codex" else get_client()
 
     jd_digest = md5_digest(jd_markdown, limit=8000)
     res_digest = md5_digest(resume_text, limit=8000)
-    key = hash_key(use_model, job_url or "", jd_digest, res_digest)
+    key = hash_key(provider, use_model, job_url or "", jd_digest, res_digest)
 
     cache_path = Path(cache_dir) if cache_dir else settings().cache_dir("openai")
     ensure_dir(cache_path)
@@ -53,31 +57,53 @@ def compare_jd_vs_resume(
         job=jd_markdown[:12000], resume=resume_text[:12000]
     )
 
-    kwargs = {
-        "model": use_model,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        "response_format": {"type": "json_object"},
-    }
+    if provider == "codex":
+        resp = codex.compare_jd_vs_resume(
+            jd_markdown=jd_markdown,
+            resume_text=resume_text,
+            model=model,
+            prompt_name=prompt_name,
+        )
+        elapsed = resp["elapsed"]
+        content = strip_json_code_fence(resp["content"] or "{}")
+        input_tokens = 0
+        output_tokens = 0
+        use_model = resp["model"]
+        cost_estimate = {
+            "model": use_model,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "input_cost_usd": 0.0,
+            "output_cost_usd": 0.0,
+            "total_cost_usd": 0.0,
+            "pricing_per_1k": {},
+        }
+    else:
+        kwargs = {
+            "model": use_model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "response_format": {"type": "json_object"},
+        }
 
-    if supports_temperature(use_model):
-        kwargs["temperature"] = 0.2
+        if supports_temperature(use_model):
+            kwargs["temperature"] = 0.2
 
-    start_time = time.perf_counter()
-    resp = client.chat.completions.create(**kwargs)
-    elapsed = int((time.perf_counter() - start_time) * 1000)
-    content = strip_json_code_fence(resp.choices[0].message.content or "{}")
+        start_time = time.perf_counter()
+        resp = client.chat.completions.create(**kwargs)
+        elapsed = int((time.perf_counter() - start_time) * 1000)
+        content = strip_json_code_fence(resp.choices[0].message.content or "{}")
 
-    input_tokens = resp.usage.prompt_tokens if resp.usage else 0
-    output_tokens = resp.usage.completion_tokens if resp.usage else 0
-    cost_estimate = estimate_cost(use_model, input_tokens, output_tokens)
+        input_tokens = resp.usage.prompt_tokens if resp.usage else 0
+        output_tokens = resp.usage.completion_tokens if resp.usage else 0
+        cost_estimate = estimate_cost(use_model, input_tokens, output_tokens)
 
-    print(
-        f"API Cost: ${cost_estimate['total_cost_usd']:.6f} "
-        f"({input_tokens} input + {output_tokens} output tokens)"
-    )
+        print(
+            f"API Cost: ${cost_estimate['total_cost_usd']:.6f} "
+            f"({input_tokens} input + {output_tokens} output tokens)"
+        )
 
     try:
         parsed = json.loads(content)
@@ -102,6 +128,7 @@ def compare_jd_vs_resume(
         parsed["_meta"] = {
             "key": key,
             "model": use_model,
+            "provider": provider,
             "job_url": job_url,
             "cost_estimate": cost_estimate,
             "elapsed": elapsed,
@@ -131,6 +158,7 @@ def compare_jd_vs_resume(
             "_meta": {
                 "key": key,
                 "model": use_model,
+                "provider": provider,
                 "job_url": job_url,
                 "elapsed": elapsed,
             },

@@ -26,6 +26,7 @@ _todo - terminal demo gif_
 - **Rich Terminal UI** - Beautiful progress bars and formatted output
 - **Interactive Chat** - Chat about analysis results with AI
 - **Flexible Prompts** - Customizable analysis prompts for different scenarios
+- **Linked Codex Mode** - Use a signed-in Codex CLI / ChatGPT account instead of an OpenAI API key
 
 ## Installation
 
@@ -48,6 +49,7 @@ swe-szn --help
 - **Python 3.10+** - [Download here](https://www.python.org/downloads/)
 - **OpenAI API Key** - [Get one here](https://platform.openai.com/api-keys)
 - **Firecrawl API Key** - [Get one here](https://firecrawl.dev/)
+- **Optional: Codex CLI** - `npm i -g @openai/codex` if you want ChatGPT-linked auth
 
 ## Quick Start
 
@@ -67,7 +69,9 @@ Create a `.env` file in the project root:
 OPENAI_API_KEY=sk-your-key-here
 FIRECRAWL_API_KEY=fc-your-key-here
 # Optional
+SWE_SZN_AI_PROVIDER=openai
 OPENAI_MODEL=gpt-4o-mini
+CODEX_MODEL=gpt-5.4
 SWE_SZN_CACHE_DIR=./cache
 ```
 
@@ -100,6 +104,9 @@ swe-szn analyze-job resume.pdf https://company.com/job
 ```bash
 # Use different AI model
 swe-szn analyze-job resume.pdf --model gpt-4
+
+# Use your linked Codex / ChatGPT account
+SWE_SZN_AI_PROVIDER=codex swe-szn analyze-job resume.pdf https://company.com/job
 
 # Chat about the analysis
 swe-szn analyze-job resume.pdf --chat
