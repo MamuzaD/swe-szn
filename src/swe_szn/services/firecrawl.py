@@ -23,6 +23,7 @@ def _normalize_url(url: str) -> str:
                 "ref",
                 "ref_source",
                 "referrer",
+                "gh_src",
             }
 
         filtered = [(k, v) for k, v in query_items if not is_tracking(k)]

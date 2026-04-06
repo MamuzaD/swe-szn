@@ -13,6 +13,7 @@ def run(
     model: str,
     force: bool,
     chat_after: bool,
+    no_scrape: bool,
 ) -> dict:
     with Progress(
         SpinnerColumn(),
@@ -24,7 +25,16 @@ def run(
         scrape_task = progress.add_task(
             "[yellow]swe-eping the job posting...", total=None
         )
-        jd_markdown = firecrawl.scrape_job(url)
+        if not no_scrape:
+            jd_markdown = firecrawl.scrape_job(url)
+        else:
+            progress.update(
+                scrape_task,
+                description="[yellow]waiting for job posting input...",
+                completed=1,
+                total=1,
+            )
+            jd_markdown = input("Paste the job posting here: ")
         progress.update(
             scrape_task,
             description="[green]swe-eped the job posting",

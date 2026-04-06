@@ -39,11 +39,17 @@ def analyze_job(
         "-cp",
         help="Prompt template to use for the chat",
     ),
+    no_scrape: bool = typer.Option(
+        False,
+        "--no-scrape",
+        "-ns",
+        help="Don't scrape the job posting, instead paste into CLI",
+    ),
 ):
     from swe_szn import analyze, chat
 
     # prompt for job url
-    if not url:
+    if not url and not no_scrape:
         url = typer.prompt("Enter the job posting URL")
 
     result = analyze.run(
@@ -53,6 +59,7 @@ def analyze_job(
         model=model,
         force=force,
         chat_after=chat_after,
+        no_scrape=no_scrape,
     )
 
     rich.print_overview(result)
