@@ -34,7 +34,13 @@ _todo - terminal demo gif_
 ```bash
 git clone https://github.com/yourusername/swe-szn.git
 cd swe-szn
-pip install -e .
+uv sync --dev
+```
+
+Run commands inside the project environment with `uv run`:
+
+```bash
+swe-szn --help
 ```
 
 ### Prerequisites
@@ -48,6 +54,7 @@ pip install -e .
 ### 1. Configure API Keys
 
 **Option A: Interactive Setup Wizard (Recommended)**
+
 ```bash
 swe-szn config setup
 ```
